@@ -1,68 +1,29 @@
 ```markdown
-# Treasure Chest System
+# 🌟 Treasure Chest System
 
-## Description
-The Treasure Chest System is a dynamic module for AzerothCore, enabling Game Masters to create and manage treasure chests with custom loot, hints, and server-wide announcements. This system enhances gameplay by allowing players to discover and loot these chests, adding an extra layer of excitement to the world.
+## 🗺️ Description
+A dynamic treasure chest system for **AzerothCore** that allows Game Masters to create and manage treasure chests with custom loot and hints. Players can discover and loot these chests, with server-wide announcements for discoveries.  
 
-## Features
-- **Spawn treasure chests** at GM-specified locations.
-- **Add/remove items and gold** to/from chests.
-- **Set and display hints** for chest locations.
-- **Server-wide announcements** for chest spawns and loot discoveries.
-- **Colored messages** for enhanced visibility.
-- Full **GM command system**.
-- Integrated **debug logging** for troubleshooting.
+---
 
-## Installation
+## 📜 SQL Details
+The SQL installation script:  
+- 🛠️ **Creates** a custom gameobject (ID: `500001`).  
+- 🎨 **Sets** the chest model (`DisplayID: 8686`).  
+- ⚙️ **Configures** basic properties (type `3` for chest).  
+- 🎁 **Adds** initial test loot:  
+  - 🧵 *Linen Cloth*  
+  - 🧀 *Darnassian Bleu*  
+  - 🧵 *Silk Cloth*  
+- 🔗 **Links** loot templates properly to the chest.
 
-### Prerequisites
-- A running AzerothCore server with Eluna Lua Engine enabled.
-- Access to the `acore_world` database to execute SQL scripts.
+---
 
-### Steps
-1. **Place the Lua Script**  
-   Copy `treasure_chest_system.lua` to your server's `lua_scripts` folder.
-
-2. **Execute the SQL Script**  
-   Open your SQL client (e.g., HeidiSQL, MySQL Workbench) and run the provided `treasure_chest_system.sql` in your `acore_world` database. This script will:  
-   - Remove conflicting entries (if any).  
-   - Create a custom gameobject (Treasure Chest) with loot and properties.  
-   - Add initial test loot for functionality verification.
-
-3. **Restart the Server**  
-   Restart your server to load the Lua script and database entries.
-
-4. **Verify Installation**  
-   - Use SQL verification queries in the script to confirm entries exist in the database.  
-   - Test in-game using GM commands like `#chest spawn`.
-
-### Critical Notes
-- *⚠️*Always Reload Loot Templates*⚠️*: After using `#chest add`, execute `.reload gameobject_loot_template` for changes to take effect.  
-- Use `#chest help` in-game to see all available GM commands.
-
-## Commands
-- `#chest spawn` - Spawns a treasure chest at your location.
-- `#chest list` - Lists current chest contents.
-- `#chest clear` - Clears all chest contents.
-- `#chest add <itemID> <count>` - Adds an item to the chest.  
-  - **Note**: Use `.reload gameobject_loot_template` after adding items!
-- `#chest gold <amount>` - Sets gold amount.
-- `#chest reload` - Reloads chest loot templates.
-- `#chest hint` - Displays the current chest hint.
-- `#chest addhint <text>` - Sets a hint for the chest.
-
-## Usage Example
-
-1. #chest add 49426 1 // Add item to chest
-2. .reload gameobject_loot_template // Reload templates
-3. #chest spawn // Spawn the chest with updated loot
-```
-
-## Configuration
-Modify settings in the `CONFIG` table of the Lua script:
+## ⚙️ Configuration
+Customize the script with the following options in the `CONFIG` table:  
 ```lua
 CONFIG = {
-  CHEST_ENTRY = 501000,        -- Gameobject entry ID for the chest
+  CHEST_ENTRY = 500001,        -- Must match SQL entry ID
   DEBUG = false,               -- Enable/disable debug messages
   MIN_GM_LEVEL = 3,            -- Minimum GM level required to use commands
   ANNOUNCE_COLOR = "|cFFFFFF00", -- Color for announcements
@@ -71,45 +32,96 @@ CONFIG = {
 }
 ```
 
-## Requirements
-- AzerothCore v4.0.0+
-- Eluna Lua Engine
+---
 
-## Known Issues
-- Loot changes require `.reload gameobject_loot_template` to take effect.
-- Chest contents persist in the database until manually cleared.
+## 🎨 Message Colors
+The system uses different colors to improve visibility:  
+- 🟡 **Yellow**: General announcements  
+- 🔴 **Red**: Error messages  
+- 🟢 **Green**: Success messages  
+- ⚪ **White**: Standard information  
 
-## Troubleshooting
-1. *⚠️*If items don't appear in new chests:*⚠️*
-   - Verify you used `.reload gameobject_loot_template`. 
-   - Check if the item ID exists in your database.
-   - Ensure you have GM level 3 or higher.
+---
 
-2. **If chest doesn't spawn:**
-   - Check the server console for errors.
-   - Verify the gameobject entry exists in the database.
-   - Ensure you're spawning it in a valid location.
+## 📋 Requirements
+- AzerothCore v4.0.0+  
+- Eluna Lua Engine  
 
-## Credits
-- [Zyggy123](https://github.com/zyggy123) - Script development.
+---
 
-## License
-This project is licensed under the [GNU AGPL v3](LICENSE).
+## ⚠️ Known Issues
+- **Loot Changes**: Always use `.reload gameobject_loot_template` after adding items for changes to take effect.  
+- **Persistence**: Chest contents remain in the database until manually cleared.  
 
-## Links
-- [AzerothCore](https://github.com/azerothcore/azerothcore-wotlk)
-- [Module Catalogue](https://github.com/azerothcore/modules-catalogue)
+---
 
-## Support
-For bugs, feature requests, or questions, use the GitHub issue tracker.
+## 🛠️ Troubleshooting
+### 💡 If items are missing in new chests:
+- Verify you used `.reload gameobject_loot_template`.  
+- Check if the item ID exists in the database.  
+- Ensure your GM level is 3 or higher.  
 
-## Contributing
-1. Fork the repository.
-2. Create a new branch for your feature.
-3. Commit your changes.
-4. Push to your branch.
-5. Create a Pull Request.
+### 💡 If the chest fails to spawn:
+- Check the console for error messages.  
+- Confirm the gameobject entry exists in the database.  
+- Make sure you're in a valid location.  
 
-## Version History
+---
+
+## 🛡️ Commands
+- **`#chest spawn`** - 🗺️ Spawns a treasure chest at your location.  
+- **`#chest list`** - 📜 Lists the current chest contents.  
+- **`#chest clear`** - 🧹 Clears all chest contents.  
+- **`#chest add <itemID> <count>`** - 🎁 Adds an item to the chest.  
+  - **📝 Note**: Use `.reload gameobject_loot_template` after adding items!  
+- **`#chest gold <amount>`** - 💰 Sets gold amount.  
+- **`#chest reload`** - 🔄 Reloads chest loot templates.  
+- **`#chest hint`** - ❓ Displays the current chest hint.  
+- **`#chest addhint <text>`** - 🖋️ Sets a hint for the chest.  
+
+---
+
+## 📖 Usage Example
+```plaintext
+1. #chest add 49426 1     // Add item to chest
+2. .reload gameobject_loot_template // Reload templates
+3. #chest spawn           // Spawn the chest with updated loot
+```
+
+---
+
+## 🙌 Credits
+- **[Zyggy123](https://github.com/zyggy123)** - Original script development.
+
+---
+
+## 📜 License
+This module is released under the **[GNU AGPL v3](LICENSE)**.
+
+---
+
+## 🔗 Links
+- [AzerothCore](https://github.com/azerothcore/azerothcore-wotlk)  
+- [Module Catalogue](https://github.com/azerothcore/modules-catalogue)  
+
+---
+
+## 🤝 Support
+For issues and feature requests, please use the **GitHub issue tracker**.
+
+---
+
+## 🔧 Contributing
+1. Fork the repository.  
+2. Create your feature branch.  
+3. Commit your changes.  
+4. Push to the branch.  
+5. Create a Pull Request.  
+
+---
+
+## 📜 Version History
 - **1.0.0**  
-  - Initial release with core treasure chest functionality.
+  - Initial release with basic chest functionality.  
+  - Command system.  
+  - SQL installation script included.
