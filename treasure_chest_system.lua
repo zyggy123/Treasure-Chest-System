@@ -15,14 +15,14 @@ local CONFIG = {
         INFO = "|cFF00FFFF",
         SUCCESS = "|cFF00FF00",
         SYSTEM = "|cFFFF8000",
-        PLAYER = "|cFFFF0000", -- Adăugat pentru numele playerului
-        ZONE = "|cFFFF0000",   -- Adăugat pentru zonă
+        PLAYER = "|cFFFF0000", 
+        ZONE = "|cFFFF0000",  
         RESET = "|r"
     },
     PREFIX = {
         DEBUG = "[Treasure Event]",
         CHAT = "[Treasure System]",
-        EVENT = "[Treasure Event]" -- Adăugat pentru mesaje publice
+        EVENT = "[Treasure Event]" 
     }
 }
 
@@ -153,7 +153,7 @@ local function AddLoot(player, itemEntry, count)
     if player:IsGM() then
         SendSystemMessage(player, string.format("Added item %s (x%d) to treasure chest!", 
             itemName, count), "SUCCESS")
-        -- Adăugat mesajul dublu pentru reload
+        -- Added double message for reload
         SendSystemMessage(player, "Use .reload gameobject_loot_template for new item to be available in new chest", "ERROR")
         SendSystemMessage(player, "Use .reload gameobject_loot_template for new item to be available in new chest", "ERROR")
     end
@@ -302,7 +302,7 @@ local function OnChatCommand(event, player, msg, Type, lang)
 
     Debug("Received command: chest " .. cmd)
 
-    -- Permite comanda hint pentru toți playerii
+-- Enable hint command for all players
     if cmd == "hint" then
         ShowHint(player)
         return false
