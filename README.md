@@ -1,3 +1,9 @@
+<h1 align="center">Treasure Chest System</h1>
+<p align="center">
+<img src="https://github.com/zyggy123/Treasure-Chest-System/blob/main/icon.png" />
+</p>
+
+
 ```markdown
 # 🌟 Treasure Chest System
 
@@ -146,4 +152,3 @@ For issues and feature requests, please use the **GitHub issue tracker**.
   - Initial release with basic chest functionality.  
   - Command system.  
   - SQL installation script included.
-```
