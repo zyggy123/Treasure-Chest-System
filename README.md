@@ -152,3 +152,9 @@ For issues and feature requests, please use the **GitHub issue tracker**.
   - Initial release with basic chest functionality.  
   - Command system.  
   - SQL installation script included.
+ 
+
+    
+<h1 align="center">Video</h1>
+
+[![Video Demo](https://github.com/zyggy123/Treasure-Chest-System/blob/main/Youtube.png)](https://www.youtube.com/watch?v=7GWxilR0674)
