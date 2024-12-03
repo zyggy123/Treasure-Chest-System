@@ -33,7 +33,7 @@ A dynamic treasure chest system for AzerothCore that allows Game Masters to crea
 - `#chest addhint <text>` - Sets chest hint.
 
 ## Usage Example
-```plaintext
+
 1. #chest add 49426 1 // Add item to chest
 2. .reload gameobject_loot_template // IMPORTANT: Reload templates
 3. #chest spawn // Now spawn the chest with updated loot
