@@ -2,11 +2,32 @@
 # 🌟 Treasure Chest System
 
 ## 🗺️ Description
-A dynamic treasure chest system for **AzerothCore** that allows Game Masters to create and manage treasure chests with custom loot and hints. Players can discover and loot these chests, with server-wide announcements for discoveries.  
+A dynamic treasure chest system for **AzerothCore** that allows Game Masters to create and manage treasure chests with custom loot and hints. Players can discover and loot these chests, with server-wide announcements for discoveries.
 
 ---
 
-## 📜 SQL Details
+## 🚀 Installation Guide  
+Follow these steps to install the script:  
+
+### 1️⃣ **Download the Files**  
+- **Lua Script**: Copy the `treasure_chest_system.lua` file to your `lua_scripts` folder.  
+  > 📂 **Path Example**: `AzerothCore/server/lua_scripts/`  
+
+- **SQL Script**: Execute the SQL installation file in your **world** database.  
+
+### 2️⃣ **Execute the SQL Script**  
+1. Open a database management tool like **HeidiSQL**, **Navicat**, or **MySQL Workbench**.  
+2. Connect to your **AzerothCore world database** (commonly named `acore_world`).  
+3. Import and execute the provided SQL script (`treasure_chest_install.sql`).  
+
+### 3️⃣ **Restart the Server**  
+Once the Lua script is in place and the SQL script is executed:  
+1. Restart your server to load the new script and changes.  
+2. You’re good to go! 🎉  
+
+---
+
+## 📜 SQL Details  
 The SQL installation script:  
 - 🛠️ **Creates** a custom gameobject (ID: `500001`).  
 - 🎨 **Sets** the chest model (`DisplayID: 8686`).  
@@ -15,11 +36,11 @@ The SQL installation script:
   - 🧵 *Linen Cloth*  
   - 🧀 *Darnassian Bleu*  
   - 🧵 *Silk Cloth*  
-- 🔗 **Links** loot templates properly to the chest.
+- 🔗 **Links** loot templates properly to the chest.  
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Configuration  
 Customize the script with the following options in the `CONFIG` table:  
 ```lua
 CONFIG = {
@@ -34,7 +55,7 @@ CONFIG = {
 
 ---
 
-## 🎨 Message Colors
+## 🎨 Message Colors  
 The system uses different colors to improve visibility:  
 - 🟡 **Yellow**: General announcements  
 - 🔴 **Red**: Error messages  
@@ -43,32 +64,32 @@ The system uses different colors to improve visibility:
 
 ---
 
-## 📋 Requirements
+## 📋 Requirements  
 - AzerothCore v4.0.0+  
 - Eluna Lua Engine  
 
 ---
 
-## ⚠️ Known Issues
+## ⚠️ Known Issues  
 - **Loot Changes**: Always use `.reload gameobject_loot_template` after adding items for changes to take effect.  
 - **Persistence**: Chest contents remain in the database until manually cleared.  
 
 ---
 
-## 🛠️ Troubleshooting
-### 💡 If items are missing in new chests:
+## 🛠️ Troubleshooting  
+### 💡 If items are missing in new chests:  
 - Verify you used `.reload gameobject_loot_template`.  
 - Check if the item ID exists in the database.  
 - Ensure your GM level is 3 or higher.  
 
-### 💡 If the chest fails to spawn:
+### 💡 If the chest fails to spawn:  
 - Check the console for error messages.  
 - Confirm the gameobject entry exists in the database.  
 - Make sure you're in a valid location.  
 
 ---
 
-## 🛡️ Commands
+## 🛡️ Commands  
 - **`#chest spawn`** - 🗺️ Spawns a treasure chest at your location.  
 - **`#chest list`** - 📜 Lists the current chest contents.  
 - **`#chest clear`** - 🧹 Clears all chest contents.  
@@ -81,7 +102,7 @@ The system uses different colors to improve visibility:
 
 ---
 
-## 📖 Usage Example
+## 📖 Usage Example  
 ```plaintext
 1. #chest add 49426 1     // Add item to chest
 2. .reload gameobject_loot_template // Reload templates
@@ -90,28 +111,28 @@ The system uses different colors to improve visibility:
 
 ---
 
-## 🙌 Credits
-- **[Zyggy123](https://github.com/zyggy123)** - Original script development.
+## 🙌 Credits  
+- **[Zyggy123](https://github.com/zyggy123)** - Original script development.  
 
 ---
 
-## 📜 License
-This module is released under the **[GNU AGPL v3](LICENSE)**.
+## 📜 License  
+This module is released under the **[GNU AGPL v3](LICENSE)**.  
 
 ---
 
-## 🔗 Links
+## 🔗 Links  
 - [AzerothCore](https://github.com/azerothcore/azerothcore-wotlk)  
 - [Module Catalogue](https://github.com/azerothcore/modules-catalogue)  
 
 ---
 
-## 🤝 Support
-For issues and feature requests, please use the **GitHub issue tracker**.
+## 🤝 Support  
+For issues and feature requests, please use the **GitHub issue tracker**.  
 
 ---
 
-## 🔧 Contributing
+## 🔧 Contributing  
 1. Fork the repository.  
 2. Create your feature branch.  
 3. Commit your changes.  
@@ -120,8 +141,9 @@ For issues and feature requests, please use the **GitHub issue tracker**.
 
 ---
 
-## 📜 Version History
+## 📜 Version History  
 - **1.0.0**  
   - Initial release with basic chest functionality.  
   - Command system.  
   - SQL installation script included.
+```
