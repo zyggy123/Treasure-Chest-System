@@ -103,5 +103,3 @@ For issues and feature requests, please use the GitHub issue tracker.
   - Initial release.
   - Basic chest functionality.
   - Command system implementation.
-```
-
