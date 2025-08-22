@@ -10,7 +10,8 @@
 * up the initial loot template.
 
 ***************************************************************************/
--- 1. First we delete any existing entries for safetyDELETE FROM gameobject_template WHERE entry = 500001;
+-- 1. First we delete any existing entries for safety
+DELETE FROM gameobject_template WHERE entry = 500001;
 DELETE FROM gameobject_template_addon WHERE entry = 500001;
 DELETE FROM gameobject_loot_template WHERE Entry = 500001;
 
