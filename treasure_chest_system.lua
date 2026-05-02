@@ -5,7 +5,7 @@
 
 -- Constants and Configuration
 local CONFIG = {
-    CHEST_ENTRY = 500001,
+    CHEST_ENTRY = 800001,
     CHEST_DISPLAY_ID = 8686,
     DEBUG = true,
     COLORS = {
