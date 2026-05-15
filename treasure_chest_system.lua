@@ -1,345 +1,381 @@
 -- Treasure Chest System
 -- Author: Zyggy123 (https://github.com/zyggy123/Treasure-Chest-System)
--- Version: 1.0
--- Description: Advanced treasure chest system with dynamic loot and gold distribution
+-- Version: 2.0 (No-Reload Architecture)
+-- Description: Advanced treasure chest system with dynamic loot and gold.
+-- ============================================================
+-- Configuration
+-- ============================================================
 
--- Constants and Configuration
+
 local CONFIG = {
-    CHEST_ENTRY = 800001,
-    CHEST_DISPLAY_ID = 8686,
-    DEBUG = true,
+    CHEST_ENTRY  = 800001,
+    DEBUG        = false,
+    MIN_GM_LEVEL = 3,
+    LOOT_TABLE   = "custom_treasure_chest_loot",
+    CONFIG_TABLE = "custom_treasure_chest_config",
+    SPAWN_TABLE  = "custom_treasure_chest_spawn",
     COLORS = {
-        DEBUG = "|cFF00FF00",
-        ERROR = "|cFFFF0000",
+        ERROR   = "|cFFFF0000",
         WARNING = "|cFFFFFF00",
-        INFO = "|cFF00FFFF",
+        INFO    = "|cFF00FFFF",
         SUCCESS = "|cFF00FF00",
-        SYSTEM = "|cFFFF8000",
-        PLAYER = "|cFFFF0000", 
-        ZONE = "|cFFFF0000",  
-        RESET = "|r"
+        SYSTEM  = "|cFFFF8000",
+        PLAYER  = "|cFFFFFF00",
+        ZONE    = "|cFFADD8E6",
+        RESET   = "|r"
     },
     PREFIX = {
-        DEBUG = "[Treasure Event]",
-        CHAT = "[Treasure System]",
-        EVENT = "[Treasure Event]" 
+        CHAT  = "[Treasure System]",
+        EVENT = "[Treasure Event]"
     }
 }
 
--- Adăugat variabila pentru hint
-local currentHint = nil
+-- ============================================================
+-- Utility helpers
+-- ============================================================
 
--- Command Help System
-local COMMANDS = {
-    ["chest spawn"] = "Spawns a treasure chest at your location",
-    ["chest list"] = "Lists current chest contents",
-    ["chest clear"] = "Clears all chest contents",
-    ["chest gold"] = "Sets gold amount (Usage: #chest gold <amount>)",
-    ["chest add"] = "Adds item to chest (Usage: #chest add <itemID> <count>)",
-    ["chest reload"] = "Reloads chest templates",
-    ["chest addhint"] = "Adds a hint for the chest (Usage: #chest addhint <text>)",
-    ["chest hint"] = "Shows the current chest hint"
-}
-
--- Utility Functions
-local function GetColoredText(color, text)
-    return CONFIG.COLORS[color] .. text .. CONFIG.COLORS.RESET
+local function Color(key, text)
+    return (CONFIG.COLORS[key] or "") .. tostring(text) .. CONFIG.COLORS.RESET
 end
 
--- Enhanced Debug Function
-local function Debug(msg, type)
-    if CONFIG.DEBUG then
-        local messageType = type or "INFO"
-        print(GetColoredText("SYSTEM", CONFIG.PREFIX.DEBUG) .. " " .. 
-              GetColoredText(messageType, msg))
-    end
+-- so we can trace issues without restarting the server.
+    print("[TCS-DBG] " .. tostring(msg))
 end
 
--- Enhanced Zone Detection System
-local function GetZoneName(player)
+end
+
+-- Send a colored message only to the given player
+local function Msg(player, msg, colorKey)
+    player:SendBroadcastMessage(Color("SYSTEM", CONFIG.PREFIX.CHAT) ..
+        " " .. Color(colorKey or "INFO", msg))
+end
+
+-- Broadcast to the whole server
+local function World(msg, colorKey)
+    SendWorldMessage(Color("SYSTEM", CONFIG.PREFIX.EVENT) ..
+        " " .. Color(colorKey or "INFO", msg))
+end
+
+-- ============================================================
+-- Zone/location helper
+-- GetAreaName() exists in AzerothCore Eluna builds and reads
+-- area names from the loaded DBC data. We use pcall so the
+-- script never crashes if a future build removes it.
+-- ============================================================
+local function GetLocationString(player)
     local zoneId = player:GetZoneId()
     local areaId = player:GetAreaId()
 
-    -- Get zone and area names directly from client DB
-    local zoneName = GetAreaName(zoneId)
-    local areaName = GetAreaName(areaId)
-
-    -- Build informative location string
-    local locationName = zoneName
-    if areaName and areaName ~= zoneName then
-        locationName = zoneName .. " - " .. areaName
+    -- Try GetAreaName() (available in AzerothCore Eluna)
+    local ok, zoneName = pcall(GetAreaName, zoneId)
+    if ok and zoneName and zoneName ~= "" then
+        local ok2, areaName = pcall(GetAreaName, areaId)
+        if ok2 and areaName and areaName ~= "" and areaName ~= zoneName then
+            return zoneName .. " - " .. areaName
+        end
+        return zoneName
     end
 
-    return locationName
+    -- Fallback: raw IDs (safe on any build)
+    return string.format("Map %d / Zone %d", player:GetMapId(), zoneId)
 end
 
--- Enhanced Message System
-local function SendSystemMessage(player, msg, messageType)
-    if player:IsGM() then
-        local prefix = GetColoredText("SYSTEM", CONFIG.PREFIX.CHAT)
-        local message = GetColoredText(messageType or "INFO", msg)
-        player:SendBroadcastMessage(prefix .. " " .. message)
-    end
+-- ============================================================
+-- Config DB helpers  (gold & hint stored in custom_treasure_chest_config)
+-- ============================================================
+
+local function GetConfig(key)
+    local r = WorldDBQuery(string.format(
+        "SELECT config_value FROM %s WHERE config_key = '%s' LIMIT 1;",
+        CONFIG.CONFIG_TABLE, key))
+    return r and r:GetString(0) or nil
 end
 
-local function SendWorldSystemMessage(msg, messageType)
-    local prefix = GetColoredText("SYSTEM", CONFIG.PREFIX.EVENT)
-    local message = GetColoredText(messageType or "INFO", msg)
-    SendWorldMessage(prefix .. " " .. message)
+local function SetConfig(key, value)
+    WorldDBExecute(string.format(
+        "UPDATE %s SET config_value = '%s' WHERE config_key = '%s';",
+        CONFIG.CONFIG_TABLE, tostring(value), key))
 end
 
--- Command Validation
-local function ValidateCommand(player, cmd, args)
-    Debug("Validating command: " .. cmd)
-    if not player:IsGM() and cmd ~= "hint" then
-        SendSystemMessage(player, "You don't have permission to use this command.", "ERROR")
-        return false
-    end
+-- ============================================================
+-- GM level check
+-- ============================================================
+local function IsAuthorized(player)
+    if not player:IsGM() then return false end
+    if player:GetGMRank() < CONFIG.MIN_GM_LEVEL then return false end
     return true
 end
 
--- Help System
+-- ============================================================
+-- COMMAND: #chest add <itemID> <count>
+-- Inserts into custom_treasure_chest_loot (NOT gameobject_loot_template)
+-- No reload needed — data is read live at chest-open time.
+-- ============================================================
+local function CmdAdd(player, itemEntry, count)
+    -- Validate item exists
+    local q = WorldDBQuery(string.format(
+        "SELECT entry, name FROM item_template WHERE entry = %d LIMIT 1;", itemEntry))
+    if not q then
+        Msg(player, "Invalid item ID: " .. itemEntry, "ERROR")
+        return
+    end
+    local itemName = q:GetString(1)
+    local safeName = itemName:gsub("'", "''")
+
+    WorldDBExecute(string.format([[
+        INSERT INTO %s (item_entry, min_count, max_count, chance, comment)
+        VALUES (%d, %d, %d, 100, '%s');
+    ]], CONFIG.LOOT_TABLE, itemEntry, count, count, safeName))
+
+    Msg(player, string.format("Added %s x%d to the chest loot.", safeName, count), "SUCCESS")
+    Msg(player, "Changes are live — no reload needed. Spawn a new chest to use updated loot.", "INFO")
+end
+
+-- ============================================================
+-- COMMAND: #chest gold <amount>
+-- Stores gold in custom_treasure_chest_config.
+-- ============================================================
+local function CmdGold(player, amount)
+    SetConfig("gold_amount", tostring(amount))
+    World(string.format("GM %s set treasure chest gold to %d gold!", player:GetName(), amount), "SUCCESS")
+    Msg(player, string.format("Gold set to %d. No reload needed.", amount), "SUCCESS")
+end
+
+-- ============================================================
+-- COMMAND: #chest clear
+-- Deletes all rows from the custom loot table + resets gold.
+-- ============================================================
+local function CmdClear(player)
+    WorldDBExecute("DELETE FROM " .. CONFIG.LOOT_TABLE .. ";")
+    SetConfig("gold_amount", "0")
+    World(string.format("GM %s cleared the treasure chest!", player:GetName()), "WARNING")
+    Msg(player, "Chest loot and gold cleared. No reload needed.", "SUCCESS")
+end
+
+-- ============================================================
+-- COMMAND: #chest list
+-- ============================================================
+local function CmdList(player)
+    Msg(player, "=== Chest Configuration ===", "INFO")
+
+    local r = WorldDBQuery(string.format([[
+        SELECT item_entry, min_count, max_count, chance, comment
+        FROM %s ORDER BY id;
+    ]], CONFIG.LOOT_TABLE))
+
+    if not r then
+        Msg(player, "  No items configured.", "WARNING")
+    else
+        repeat
+            local entry    = r:GetUInt32(0)
+            local minC     = r:GetUInt32(1)
+            local maxC     = r:GetUInt32(2)
+            local chance   = r:GetFloat(3)
+            local comment  = r:GetString(4)
+            Msg(player, string.format("  [%d] %s  x%d-%d  (%.0f%%)",
+                entry, comment, minC, maxC, chance), "INFO")
+        until not r:NextRow()
+    end
+
+    local gold = tonumber(GetConfig("gold_amount") or "0") or 0
+    Msg(player, string.format("  Gold: %d gold", gold), "INFO")
+
+    local hint = GetConfig("hint") or ""
+    if hint ~= "" then
+        Msg(player, "  Hint: " .. hint, "INFO")
+    end
+
+    Msg(player, "=== End ===", "INFO")
+end
+
+
+
+-- ============================================================
+-- COMMAND: #chest spawn
+--
+-- Uses PerformIngameSpawn(type, entry, mapId, x, y, z, o, save, 0, phase)
+--   save = true  → chest is written to the `gameobject` DB table
+--                  and survives ANY player logout / server crash.
+--   duration = 0 → no auto-timer; we delete from DB manually when looted.
+-- Falls back to player:SummonGameObject() if PerformIngameSpawn fails.
+-- ============================================================
+local function CmdSpawn(player)
+
+    local lootR     = WorldDBQuery(string.format("SELECT COUNT(*) FROM %s;", CONFIG.LOOT_TABLE))
+    local lootCount = lootR and lootR:GetUInt32(0) or 0
+
+    local gold = tonumber(GetConfig("gold_amount") or "0") or 0
+
+    if lootCount == 0 and gold == 0 then
+        Msg(player, "Cannot spawn an empty chest. Add items or gold first!", "ERROR")
+        return
+    end
+
+    local x, y, z, o = player:GetLocation()
+    local mapId       = player:GetMapId()
+
+    local chest      = nil
+    local persistent = false
+
+    -- Param #4 must be instanceId! 
+    -- Signature: PerformIngameSpawn(spawnType, entry, mapId, instanceId, x, y, z, o, save, spawntime, phase)
+    local instanceId = player:GetInstanceId()
+        CONFIG.CHEST_ENTRY, mapId, instanceId, x, y, z, o))
+        
+    local ok, result = pcall(PerformIngameSpawn,
+        2, CONFIG.CHEST_ENTRY, mapId, instanceId, x, y, z, o, true, 0)
+
+
+    if ok and result then
+        chest      = result
+        persistent = true
+    else
+        chest = player:SummonGameObject(CONFIG.CHEST_ENTRY, x, y, z, o, 3600)
+        if chest then
+        end
+    end
+
+    if chest then
+        local loc = Color("ZONE", GetLocationString(player))
+        World("A treasure chest has appeared in " .. loc .. "!", "INFO")
+        Msg(player, "Chest spawned! (It is now saved in the world)", "SUCCESS")
+    else
+        Msg(player, "Failed to spawn chest! Check server logs.", "ERROR")
+    end
+end
+
+-- ============================================================
+-- COMMAND: #chest cleanup
+-- Deletes all chests from the world and the database.
+-- ============================================================
+local function CmdCleanup(player)
+    -- Remove from DB (in AC, gameobject id is the entry)
+    WorldDBExecute("DELETE FROM gameobject WHERE id = " .. CONFIG.CHEST_ENTRY .. ";")
+    
+    -- Despawn active ones near the player
+    local count = 0
+    local gos = player:GetGameObjectsInRange(50000) -- get all
+    if gos then
+        for _, go in ipairs(gos) do
+            if go:GetEntry() == CONFIG.CHEST_ENTRY then
+                go:RemoveFromWorld()
+                count = count + 1
+            end
+        end
+    end
+    
+    Msg(player, string.format("Cleanup complete! Despawned %d active chests and cleared DB.", count), "SUCCESS")
+end
+
+-- ============================================================
+-- COMMAND: #chest addhint <text>
+-- Persists hint to DB so it survives server restarts.
+-- ============================================================
+local function CmdAddHint(player, text)
+    -- Escape single quotes to avoid SQL injection
+    local safe = text:gsub("'", "''")
+    SetConfig("hint", safe)
+    Msg(player, "Hint saved: " .. text, "SUCCESS")
+end
+
+-- ============================================================
+-- COMMAND: #chest hint  (available to ALL players)
+-- ============================================================
+local function CmdHint(player)
+    local hint = GetConfig("hint") or ""
+    if hint ~= "" then
+        player:SendBroadcastMessage(Color("INFO",
+            "[Treasure] Hint: " .. hint))
+    else
+        local loc = Color("ZONE", GetLocationString(player))
+        player:SendBroadcastMessage(Color("INFO",
+            "[Treasure] The treasure was last seen around: " .. loc))
+    end
+end
+
+-- ============================================================
+-- Help
+-- ============================================================
+local HELP = {
+    {"#chest spawn",          "Spawns the treasure chest at your location"},
+    {"#chest list",           "Lists configured loot and gold"},
+    {"#chest cleanup",        "Removes all spawned chests from the world"},
+    {"#chest add <id> <n>",   "Adds item (no reload needed!)"},
+    {"#chest clear",          "Clears all items and gold"},
+    {"#chest gold <amount>",  "Sets gold reward"},
+    {"#chest addhint <text>", "Sets a hint for players"},
+    {"#chest hint",           "Shows the hint (available to everyone)"},
+}
+
 local function ShowHelp(player)
     if player:IsGM() then
-        SendSystemMessage(player, "Available Treasure Chest Commands:", "INFO")
-        for cmd, desc in pairs(COMMANDS) do
-            SendSystemMessage(player, string.format("#%s - %s", cmd, desc), "INFO")
+        Msg(player, "=== Treasure Chest Commands ===", "INFO")
+        for _, row in ipairs(HELP) do
+            Msg(player, string.format("  %-28s - %s", row[1], row[2]), "INFO")
         end
     else
-        player:SendBroadcastMessage("Available commands: #chest hint")
+        player:SendBroadcastMessage(Color("INFO",
+            "[Treasure System] Type #chest hint to get a clue!"))
     end
 end
 
--- Hint System Functions
-local function SetHint(player, hint)
-    currentHint = hint
-    if player:IsGM() then
-        SendSystemMessage(player, "Hint set successfully: " .. hint, "SUCCESS")
-    end
-end
-
-local function ShowHint(player)
-    if currentHint then
-        player:SendBroadcastMessage(GetColoredText("INFO", "Treasure Hint: " .. currentHint))
-    else
-        local zoneName = GetColoredText("ZONE", GetZoneName(player))
-        player:SendBroadcastMessage(GetColoredText("INFO", "The treasure chest was last seen in: " .. zoneName))
-    end
-end
--- Loot Management Functions
-local function AddLoot(player, itemEntry, count)
-    Debug("Adding loot: Item " .. itemEntry .. " Count: " .. count)
-
-    -- Verify item exists
-    local itemQuery = string.format("SELECT entry, name FROM item_template WHERE entry = %d;", itemEntry)
-    local itemResult = WorldDBQuery(itemQuery)
-
-    if not itemResult then
-        SendSystemMessage(player, "Invalid Item ID!", "ERROR")
-        return
-    end
-
-    local itemName = itemResult:GetString(1)
-
-    -- Add item to loot template
-    local insertQuery = string.format([[
-        INSERT INTO gameobject_loot_template 
-        (Entry, Item, Reference, Chance, QuestRequired, LootMode, GroupId, MinCount, MaxCount, Comment) 
-        VALUES 
-        (%d, %d, 0, 100, 0, 1, 0, %d, %d, 'Item_%d');
-    ]], CONFIG.CHEST_ENTRY, itemEntry, count, count, itemEntry)
-    WorldDBExecute(insertQuery)
-
-    if player:IsGM() then
-        SendSystemMessage(player, string.format("Added item %s (x%d) to treasure chest!", 
-            itemName, count), "SUCCESS")
-        -- Added double message for reload
-        SendSystemMessage(player, "Use .reload gameobject_loot_template for new item to be available in new chest", "ERROR")
-        SendSystemMessage(player, "Use .reload gameobject_loot_template for new item to be available in new chest", "ERROR")
-    end
-    Debug(string.format("Added item %d (x%d) to loot template", itemEntry, count))
-end
-
-local function SetGold(player, amount)
-    Debug("Setting gold amount: " .. amount)
-
-    local copperAmount = amount * 10000
-
-    local updateQuery = string.format([[
-        UPDATE gameobject_template_addon 
-        SET mingold = %d, maxgold = %d 
-        WHERE entry = %d;
-    ]], copperAmount, copperAmount, CONFIG.CHEST_ENTRY)
-    WorldDBExecute(updateQuery)
-
-    SendWorldSystemMessage(string.format("GM %s set treasure chest gold to %d!", 
-        player:GetName(), amount), "SUCCESS")
-    SendSystemMessage(player, string.format("Gold amount set to: %d gold", amount), "SUCCESS")
-    Debug("Gold amount updated in database")
-end
-
-local function ClearLoot(player)
-    Debug("Clearing all loot")
-
-    -- Clear existing loot
-    WorldDBExecute(string.format("DELETE FROM gameobject_loot_template WHERE Entry = %d;", CONFIG.CHEST_ENTRY))
-
-    -- Add empty entry
-    WorldDBExecute(string.format([[
-        INSERT INTO gameobject_loot_template 
-        (Entry, Item, Reference, Chance, QuestRequired, LootMode, GroupId, MinCount, MaxCount, Comment) 
-        VALUES 
-        (%d, 0, 0, 100, 0, 1, 0, 0, 0, 'Empty');
-    ]], CONFIG.CHEST_ENTRY))
-
-    -- Reset gold
-    WorldDBExecute(string.format([[
-        UPDATE gameobject_template_addon 
-        SET mingold = 0, maxgold = 0 
-        WHERE entry = %d;
-    ]], CONFIG.CHEST_ENTRY))
-
-    SendWorldSystemMessage(string.format("GM %s cleared the treasure chest contents!", 
-        player:GetName()), "WARNING")
-    SendSystemMessage(player, "Chest loot and gold cleared!", "SUCCESS")
-    Debug("Chest loot cleared from database")
-end
-
-local function SpawnChest(player)
-    Debug("Attempting to spawn chest")
-
-    -- Verify loot exists
-    local lootQuery = string.format([[
-        SELECT COUNT(*) as count 
-        FROM gameobject_loot_template 
-        WHERE Entry = %d AND Item > 0;
-    ]], CONFIG.CHEST_ENTRY)
-    local lootResult = WorldDBQuery(lootQuery)
-
-    -- Check gold
-    local goldQuery = string.format([[
-        SELECT mingold 
-        FROM gameobject_template_addon 
-        WHERE entry = %d;
-    ]], CONFIG.CHEST_ENTRY)
-    local goldResult = WorldDBQuery(goldQuery)
-    local hasGold = goldResult and goldResult:GetUInt32(0) > 0
-
-    if (not lootResult or lootResult:GetUInt32(0) == 0) and not hasGold then
-        SendSystemMessage(player, "Cannot spawn empty chest. Add loot or gold first!", "ERROR")
-        return
-    end
-
-    local x, y, z = player:GetLocation()
-    local o = player:GetO()
-
-    local chest = player:SummonGameObject(CONFIG.CHEST_ENTRY, x, y, z, o, 300)
-    if chest then
-        local zoneName = GetColoredText("ZONE", GetZoneName(player))
-        SendWorldSystemMessage(string.format("A surprise chest has appeared in %s!", zoneName), "INFO")
-        SendSystemMessage(player, "Chest spawned successfully!", "SUCCESS")
-        Debug(string.format("Chest spawned at: X:%f Y:%f Z:%f", x, y, z))
-    else
-        Debug("Failed to spawn chest")
-        SendSystemMessage(player, "Failed to spawn chest!", "ERROR")
-    end
-end
-
-local function ListChests(player)
-    Debug("Listing chest loot")
-
-    local query = string.format([[
-        SELECT Item, MinCount, MaxCount, Comment 
-        FROM gameobject_loot_template 
-        WHERE Entry = %d;
-    ]], CONFIG.CHEST_ENTRY)
-    local result = WorldDBQuery(query)
-
-    if not result then
-        SendSystemMessage(player, "No loot configured for chest", "WARNING")
-        return
-    end
-
-    SendSystemMessage(player, "Current chest configuration:", "INFO")
-    repeat
-        local itemId = result:GetUInt32(0)
-        local minCount = result:GetUInt32(1)
-        local maxCount = result:GetUInt32(2)
-        local comment = result:GetString(3)
-        if itemId > 0 then
-            SendSystemMessage(player, string.format("Item: %d (%s) - Count: %d-%d", 
-                itemId, comment, minCount, maxCount), "INFO")
-        end
-    until not result:NextRow()
-
-    -- Show gold configuration
-    local goldQuery = string.format([[
-        SELECT mingold 
-        FROM gameobject_template_addon 
-        WHERE entry = %d;
-    ]], CONFIG.CHEST_ENTRY)
-    local goldResult = WorldDBQuery(goldQuery)
-    if goldResult then
-        local goldAmount = math.floor(goldResult:GetUInt32(0) / 10000)
-        SendSystemMessage(player, string.format("Configured gold amount: %d", goldAmount), "INFO")
-    end
-
-    SendWorldSystemMessage(string.format("GM %s is checking the treasure chest contents!", 
-        player:GetName()), "INFO")
-end
-
--- Command Handler
+-- ============================================================
+-- Chat command dispatcher
+-- ============================================================
 local function OnChatCommand(event, player, msg, Type, lang)
     if msg:sub(1,1) ~= "#" then return end
 
-    local cmd, args = msg:match("^#chest%s+(%w+)%s*(.*)")
-    if not cmd then 
-        if msg == "#chest" then
-            ShowHelp(player)
-        end
-        return 
-    end
-
-    Debug("Received command: chest " .. cmd)
-
--- Enable hint command for all players
-    if cmd == "hint" then
-        ShowHint(player)
+    -- #chest with no sub-command
+    if msg:match("^#chest%s*$") then
+        ShowHelp(player)
         return false
     end
 
-    if not ValidateCommand(player, cmd, args) then return end
+    local cmd, args = msg:match("^#chest%s+(%S+)%s*(.*)")
+    if not cmd then return end
+
+
+    -- hint is open to all players
+    if cmd == "hint" then
+        CmdHint(player)
+        return false
+    end
+
+    -- everything else is GM-only
+    if not IsAuthorized(player) then
+        Msg(player, string.format(
+            "You need GM level %d+ to use chest commands.", CONFIG.MIN_GM_LEVEL), "ERROR")
+        return false
+    end
 
     if cmd == "spawn" then
-        SpawnChest(player)
+        CmdSpawn(player)
     elseif cmd == "list" then
-        ListChests(player)
+        CmdList(player)
+    elseif cmd == "cleanup" then
+        CmdCleanup(player)
     elseif cmd == "add" then
-        local entry, count = args:match("(%d+)%s+(%d+)")
-        if entry and count then
-            AddLoot(player, tonumber(entry), tonumber(count))
+        local id, count = args:match("(%d+)%s+(%d+)")
+        if id and count then
+            CmdAdd(player, tonumber(id), tonumber(count))
         else
-            SendSystemMessage(player, "Usage: #chest add <itemID> <count>", "WARNING")
+            Msg(player, "Usage: #chest add <itemID> <count>", "WARNING")
         end
-    elseif cmd == "addhint" then
-        if args and args ~= "" then
-            SetHint(player, args)
-        else
-            SendSystemMessage(player, "Usage: #chest addhint <text>", "WARNING")
-        end
-    elseif cmd == "clear" then
-        ClearLoot(player)
     elseif cmd == "gold" then
         local amount = tonumber(args)
-        if amount then
-            SetGold(player, amount)
+        if amount and amount >= 0 then
+            CmdGold(player, amount)
         else
-            SendSystemMessage(player, "Usage: #chest gold <amount>", "WARNING")
+            Msg(player, "Usage: #chest gold <amount>", "WARNING")
         end
-    elseif cmd == "reload" then
-        player:ExecuteCommand("reload gameobject_loot_template")
-        SendWorldSystemMessage(string.format("GM %s reloaded treasure chest templates!", 
-            player:GetName()), "SUCCESS")
+    elseif cmd == "clear" then
+        CmdClear(player)
+    elseif cmd == "addhint" then
+        if args and args ~= "" then
+            CmdAddHint(player, args)
+        else
+            Msg(player, "Usage: #chest addhint <text>", "WARNING")
+        end
     else
         ShowHelp(player)
     end
@@ -347,70 +383,90 @@ local function OnChatCommand(event, player, msg, Type, lang)
     return false
 end
 
--- Chest Interaction Handler
-RegisterGameObjectEvent(CONFIG.CHEST_ENTRY, 14, function(event, go, player)
-    Debug(string.format("OnUse triggered for GO ID: %d", go:GetGUIDLow()))
+-- ============================================================
+-- EVENT 14 = GAMEOBJECT_EVENT_ON_USE
+-- Fires when a player right-clicks the chest.
+-- ============================================================
+local chestLooted = {}   -- [GUIDLow] = true, prevents double loot
 
-    -- Load loot
-    local lootQuery = string.format([[
-        SELECT Item, MinCount, MaxCount 
-        FROM gameobject_loot_template 
-        WHERE Entry = %d;
-    ]], CONFIG.CHEST_ENTRY)
-    local lootResult = WorldDBQuery(lootQuery)
-
-    -- Load gold
-    local goldQuery = string.format([[
-        SELECT mingold 
-        FROM gameobject_template_addon 
-        WHERE entry = %d;
-    ]], CONFIG.CHEST_ENTRY)
-    local goldResult = WorldDBQuery(goldQuery)
-    local goldAmount = goldResult and math.floor(goldResult:GetUInt32(0) / 10000) or 0
-
-    -- Award gold
-    if goldAmount > 0 then
-        player:ModifyMoney(goldAmount * 10000)
-        Debug(string.format("Added %d gold to player", goldAmount))
-        SendWorldSystemMessage(string.format("%s found %d gold in the treasure chest!", 
-            player:GetName(), goldAmount), "SUCCESS")
+local function OnChestInteract(event, go, player)
+    local guid = go:GetGUIDLow()
+        .. " player=" .. tostring(player:GetName()))
+    
+    if chestLooted[guid] then
+        return true
     end
-
--- Award items
-if lootResult then
-    local itemsAwarded = false
-    repeat
-        local itemId = lootResult:GetUInt32(0)
-        local minCount = lootResult:GetUInt32(1)
-        local maxCount = lootResult:GetUInt32(2)
-        local count = math.random(minCount, maxCount)
-
-        if count > 0 and itemId > 0 then
-            if player:AddItem(itemId, count) then
-                Debug(string.format("Added item %d (x%d) to player", itemId, count))
-                itemsAwarded = true
-            else
-                SendSystemMessage(player, "Your inventory is full!", "ERROR")
-                return true
-            end
-        end
-    until not lootResult:NextRow()
-
-    -- Send message only once after all items are awarded
-    if itemsAwarded then
-        local playerName = GetColoredText("PLAYER", player:GetName())
-        SendWorldMessage(GetColoredText("SYSTEM", CONFIG.PREFIX.EVENT) .. " " .. 
-                      playerName .. " found the treasure chest! Better luck next time!")
-    end
+    
+    chestLooted[guid] = true   -- prevent double-looting
+    GiveLootToPlayer(go, player)
+    return true
 end
 
-    -- Despawn chest
-    go:DespawnOrUnsummon(5000)
+RegisterGameObjectEvent(CONFIG.CHEST_ENTRY, 14, OnChestInteract)
 
-    return true
-end)
+-- ============================================================
+-- Shared loot logic (called from event 14)
+-- ============================================================
+function GiveLootToPlayer(go, player)
+    local anyReward = false
 
--- Register Events
+    -- Gold
+    local gold = tonumber(GetConfig("gold_amount") or "0") or 0
+    if gold > 0 then
+        player:ModifyMoney(gold * 10000)
+        anyReward = true
+    end
+
+    -- Items
+    local lootR = WorldDBQuery(string.format(
+        "SELECT item_entry, min_count, max_count, chance FROM %s ORDER BY id;",
+        CONFIG.LOOT_TABLE))
+
+    if lootR then
+        local rowNum = 0
+        repeat
+            rowNum = rowNum + 1
+            local itemId   = lootR:GetUInt32(0)
+            local minCount = lootR:GetUInt32(1)
+            local maxCount = lootR:GetUInt32(2)
+            local chance   = lootR:GetFloat(3)
+
+            if math.random(0, 100) <= chance then
+                local count = (minCount == maxCount) and minCount
+                              or math.random(minCount, maxCount)
+                local added = player:AddItem(itemId, count)
+                if added then
+                    anyReward = true
+                else
+                    Msg(player, "Inventory full!", "ERROR")
+                    break
+                end
+            end
+        until not lootR:NextRow()
+    else
+    end
+
+    if anyReward then
+        Msg(player,
+            string.format("Treasure looted! Check your bags%s.",
+                gold > 0 and string.format(" (+%d gold)", gold) or ""),
+            "SUCCESS")
+        World(Color("PLAYER", player:GetName()) ..
+            Color("INFO", " found the treasure chest! Better luck next time!"))
+    else
+        Msg(player, "The chest was empty...", "WARNING")
+    end
+
+    -- Remove from DB
+    -- Aggressive delete: wipe the entry from gameobject table so it doesn't
+    -- respawn after server restart.
+    WorldDBExecute("DELETE FROM gameobject WHERE id = " .. CONFIG.CHEST_ENTRY .. ";")
+
+    go:RemoveFromWorld()
+end
+
+-- ============================================================
+-- Register chat event
+-- ============================================================
 RegisterPlayerEvent(18, OnChatCommand)
 
-Debug("Treasure Chest System loaded successfully!", "SUCCESS")
