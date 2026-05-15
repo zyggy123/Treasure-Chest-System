@@ -19,12 +19,10 @@ Follow these steps to install the script:
 - **Lua Script**: Copy the `treasure_chest_system.lua` file to your `lua_scripts` folder.  
   > 📂 **Path Example**: `AzerothCore/server/lua_scripts/`  
 
-- **SQL Script**: Execute the SQL installation file in your **world** database.  
-
 ### 2️⃣ **Execute the SQL Script**  
 1. Open a database management tool like **HeidiSQL**, **Navicat**, or **MySQL Workbench**.  
 2. Connect to your **AzerothCore world database** (commonly named `acore_world`).  
-3. Import and execute the provided SQL script (`treasure_chest_install.sql`).  
+3. Import and execute the provided SQL script (`data/sql/db_world/base/treasure_chest_install.sql`).  
 
 ### 3️⃣ **Restart the Server**  
 Once the Lua script is in place and the SQL script is executed:  
@@ -35,27 +33,23 @@ Once the Lua script is in place and the SQL script is executed:
 
 ## 📜 SQL Details  
 The SQL installation script:  
-- 🛠️ **Creates** a custom gameobject (ID: `500001`).  
+- 🛠️ **Creates** a custom gameobject (ID: `800001`).  
 - 🎨 **Sets** the chest model (`DisplayID: 8686`).  
 - ⚙️ **Configures** basic properties (type `3` for chest).  
-- 🎁 **Adds** initial test loot:  
-  - 🧵 *Linen Cloth*  
-  - 🧀 *Darnassian Bleu*  
-  - 🧵 *Silk Cloth*  
-- 🔗 **Links** loot templates properly to the chest.  
+- 📦 **Creates** custom tables for live loot and config storage (`custom_treasure_chest_loot`, etc.)
 
 ---
 
 ## ⚙️ Configuration  
 Customize the script with the following options in the `CONFIG` table:  
 ```lua
-CONFIG = {
-  CHEST_ENTRY = 500001,        -- Must match SQL entry ID
-  DEBUG = false,               -- Enable/disable debug messages
-  MIN_GM_LEVEL = 3,            -- Minimum GM level required to use commands
-  ANNOUNCE_COLOR = "|cFFFFFF00", -- Color for announcements
-  ERROR_COLOR = "|cFFFF0000",    -- Color for error messages
-  SUCCESS_COLOR = "|cFF00FF00"   -- Color for success messages
+local CONFIG = {
+    CHEST_ENTRY  = 800001,
+    MIN_GM_LEVEL = 3,
+    LOOT_TABLE   = "custom_treasure_chest_loot",
+    CONFIG_TABLE = "custom_treasure_chest_config",
+    SPAWN_TABLE  = "custom_treasure_chest_spawn",
+    -- ... colors
 }
 ```
 
@@ -77,21 +71,18 @@ The system uses different colors to improve visibility:
 ---
 
 ## ⚠️ Known Issues  
-- **Loot Changes**: Always use `.reload gameobject_loot_template` after adding items for changes to take effect.  
-- **Persistence**: Chest contents remain in the database until manually cleared.  
+- None! Version 2.0 fixes all prior caching bugs natively via custom SQL tables.
 
 ---
 
 ## 🛠️ Troubleshooting  
 ### 💡 If items are missing in new chests:  
-- Verify you used `.reload gameobject_loot_template`.  
 - Check if the item ID exists in the database.  
 - Ensure your GM level is 3 or higher.  
 
-### 💡 If the chest fails to spawn:  
-- Check the console for error messages.  
+### 💡 If the chest fails to spawn or is not interactable:  
 - Confirm the gameobject entry exists in the database.  
-- Make sure you're in a valid location.  
+- Make sure you actually restarted the worldserver after applying the SQL script (this caches the chest correctly).  
 
 ---
 
@@ -99,10 +90,9 @@ The system uses different colors to improve visibility:
 - **`#chest spawn`** - 🗺️ Spawns a treasure chest at your location.  
 - **`#chest list`** - 📜 Lists the current chest contents.  
 - **`#chest clear`** - 🧹 Clears all chest contents.  
+- **`#chest cleanup`** - 🗑️ Deletes all spawned chests from the world and database.  
 - **`#chest add <itemID> <count>`** - 🎁 Adds an item to the chest.  
-  - **📝 Note**: Use `.reload gameobject_loot_template` after adding items!  
 - **`#chest gold <amount>`** - 💰 Sets gold amount.  
-- **`#chest reload`** - 🔄 Reloads chest loot templates.  
 - **`#chest hint`** - ❓ Displays the current chest hint.  
 - **`#chest addhint <text>`** - 🖋️ Sets a hint for the chest.  
 
@@ -110,9 +100,10 @@ The system uses different colors to improve visibility:
 
 ## 📖 Usage Example  
 ```plaintext
-1. #chest add 49426 1     // Add item to chest
-2. .reload gameobject_loot_template // Reload templates
-3. #chest spawn           // Spawn the chest with updated loot
+1. #chest clear           // Wipe the previous chest's contents
+2. #chest add 49426 1     // Add item to chest (no reload needed!)
+3. #chest gold 5000       // Add gold reward
+4. #chest spawn           // Spawn the chest with updated loot
 ```
 
 ---
@@ -155,6 +146,6 @@ For issues and feature requests, please use the **GitHub issue tracker**.
  
 
     
-<h1 align="center">Video</h1>
+<h1 align="center">Video is from v1</h1>
 
 [![Video Demo](https://github.com/zyggy123/Treasure-Chest-System/blob/main/Youtube.png)](https://www.youtube.com/watch?v=7GWxilR0674)
