@@ -98,6 +98,17 @@ The system uses different colors to improve visibility:
 
 ---
 
+## 🖥️ Optional UI Addon (TreasureChestGM)
+This repository includes an optional **World of Warcraft Addon** (`TreasureChestGM`) for the 3.3.5a client. It provides a visual interface for Game Masters, eliminating the need to type `#chest` commands manually!
+
+### 📥 Addon Installation:
+1. Copy the `TreasureChestGM` folder into your WoW client's `Interface/AddOns/` directory.
+2. Log into the game and ensure the addon is enabled.
+3. Type `/tcs` in chat or click the **Treasure Chest Minimap Icon** to open the GM Control panel.
+4. (Optional) Type `/tcs minimap` to hide or show the minimap icon.
+
+---
+
 ## 📖 Usage Example  
 ```plaintext
 1. #chest clear           // Wipe the previous chest's contents
@@ -148,4 +159,4 @@ For issues and feature requests, please use the **GitHub issue tracker**.
     
 <h1 align="center">Video is from v1</h1>
 
-[![Video Demo](https://github.com/zyggy123/Treasure-Chest-System/blob/main/Youtube.png)](https://www.youtube.com/watch?v=7GWxilR0674)
+[![Demo Video](https://img.youtube.com/vi/7GWxilR0674/maxresdefault.jpg)](https://www.youtube.com/watch?v=7GWxilR0674)
