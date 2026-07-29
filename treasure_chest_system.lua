@@ -38,10 +38,11 @@ local function Color(key, text)
     return (CONFIG.COLORS[key] or "") .. tostring(text) .. CONFIG.COLORS.RESET
 end
 
--- so we can trace issues without restarting the server.
-    print("[TCS-DBG] " .. tostring(msg))
-end
-
+local function Debug(msg)
+    if CONFIG.DEBUG then
+        -- so we can trace issues without restarting the server.
+        print("[TCS-DBG] " .. tostring(msg))
+    end
 end
 
 -- Send a colored message only to the given player
@@ -220,8 +221,7 @@ local function CmdSpawn(player)
     -- Param #4 must be instanceId! 
     -- Signature: PerformIngameSpawn(spawnType, entry, mapId, instanceId, x, y, z, o, save, spawntime, phase)
     local instanceId = player:GetInstanceId()
-        CONFIG.CHEST_ENTRY, mapId, instanceId, x, y, z, o))
-        
+
     local ok, result = pcall(PerformIngameSpawn,
         2, CONFIG.CHEST_ENTRY, mapId, instanceId, x, y, z, o, true, 0)
 
@@ -391,7 +391,6 @@ local chestLooted = {}   -- [GUIDLow] = true, prevents double loot
 
 local function OnChestInteract(event, go, player)
     local guid = go:GetGUIDLow()
-        .. " player=" .. tostring(player:GetName()))
     
     if chestLooted[guid] then
         return true
