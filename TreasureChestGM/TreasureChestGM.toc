@@ -1,0 +1,8 @@
+## Interface: 30300
+## Title: |cff33ff99Treasure Chest|r GM Control
+## Notes: Icon quick-command panel for zyggy123/Treasure-Chest-System (#chest server commands)
+## Author: Andrei
+## Version: 1.0.0
+## SavedVariables: TreasureChestGM_DB
+
+TreasureChestGM.lua
