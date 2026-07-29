@@ -109,6 +109,16 @@ This repository includes an optional **World of Warcraft Addon** (`TreasureChest
 
 ---
 
+## 📡 AIO (Addon-In-One) Version
+If your server uses **[Rochet2's AIO](https://github.com/Rochet2/AIO)**, you do not need to install the classic addon! This repository includes an `AIO_Version` folder specifically designed for seamless server-to-client UI delivery.
+
+### 📥 AIO Installation:
+1. Ensure your players have the base `AIO_Client` installed in their WoW client.
+2. Copy `TreasureChestGM_AIO_Server.lua` and `TreasureChestGM_AIO_Client.lua` from the `AIO_Version` folder into your server's `lua_scripts` directory.
+3. Restart your server. The UI will automatically be sent to clients and all commands will route securely and invisibly through the AIO network!
+
+---
+
 ## 📖 Usage Example  
 ```plaintext
 1. #chest clear           // Wipe the previous chest's contents
@@ -159,4 +169,4 @@ For issues and feature requests, please use the **GitHub issue tracker**.
     
 <h1 align="center">Video is from v1</h1>
 
-[![Demo Video](https://img.youtube.com/vi/7GWxilR0674/maxresdefault.jpg)](https://www.youtube.com/watch?v=7GWxilR0674)
+[![Video Demo](https://github.com/zyggy123/Treasure-Chest-System/blob/main/Youtube.png)](https://www.youtube.com/watch?v=7GWxilR0674)
